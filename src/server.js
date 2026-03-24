@@ -95,8 +95,12 @@ app.get("/.well-known/openai-domain-verification", (req, res) => {
 });
 
 app.get("/.well-known/openai-apps-challenge", (req, res) => {
+  const token = (process.env.OPENAI_APPS_CHALLENGE_TOKEN || "").replace(
+    /^openai-apps-challenge=/,
+    ""
+  );
   res.status(200).type("text/plain");
-  res.send(process.env.OPENAI_APPS_CHALLENGE_TOKEN);
+  res.send(token);
 });
 
 app.listen(PORT, () => {
