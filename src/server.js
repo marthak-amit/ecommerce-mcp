@@ -6,9 +6,10 @@ import { randomUUID } from "node:crypto";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import { createMCPServer } from "./mcpServer.js";
-import { searchProducts, getProductById } from "./services/productService.js";
-import { addToCart } from "./services/cartService.js";
-import { purchaseProduct } from "./services/orderService.js";
+import { products as catalogProducts, categories } from "./data/products.js";
+import { searchProducts, getProductById, filterProducts } from "./services/productService.js";
+import { addToCart, getCart } from "./services/cartService.js";
+import { purchaseProduct, getOrdersByUserId } from "./services/orderService.js";
 
 dotenv.config();
 
@@ -127,6 +128,13 @@ app.post("/api/search-products", async (req, res) => {
   }
 });
 
+app.get("/api/products", async (req, res) => {
+  res.status(200).json({
+    products: catalogProducts,
+    count: catalogProducts.length
+  });
+});
+
 app.get("/api/products/:productId", async (req, res) => {
   try {
     const productId = Number(req.params.productId);
@@ -145,6 +153,39 @@ app.get("/api/products/:productId", async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: "Failed to get product" });
   }
+});
+
+app.get("/api/categories", async (req, res) => {
+  res.status(200).json({ categories });
+});
+
+app.post("/api/filter-products", async (req, res) => {
+  try {
+    const { minPrice, maxPrice, category, minRating } = req.body ?? {};
+    const filtered = await filterProducts({ minPrice, maxPrice, category, minRating });
+    res.status(200).json({ products: filtered, count: filtered.length });
+  } catch (error) {
+    res.status(400).json({ error: "Failed to filter products" });
+  }
+});
+
+app.post("/api/cart/add", async (req, res) => {
+  try {
+    const { productId, quantity } = req.body ?? {};
+    if (!Number.isInteger(productId) || !Number.isInteger(quantity) || quantity <= 0) {
+      res.status(400).json({ error: "productId and quantity must be positive integers" });
+      return;
+    }
+    const cart = await addToCart(productId, quantity);
+    res.status(200).json({ message: "Item added to cart", cart });
+  } catch (error) {
+    res.status(400).json({ error: error instanceof Error ? error.message : "Failed to add to cart" });
+  }
+});
+
+app.get("/api/cart", async (req, res) => {
+  const cart = await getCart();
+  res.status(200).json(cart);
 });
 
 app.post("/api/create-order", async (req, res) => {
@@ -166,6 +207,26 @@ app.post("/api/create-order", async (req, res) => {
   } catch (error) {
     res.status(400).json({ error: error instanceof Error ? error.message : "Failed to create order" });
   }
+});
+
+app.post("/api/checkout", async (req, res) => {
+  try {
+    const { userId } = req.body ?? {};
+    if (typeof userId !== "string" || !userId.trim()) {
+      res.status(400).json({ error: "userId is required" });
+      return;
+    }
+    const order = await purchaseProduct(userId);
+    res.status(200).json({ message: "Checkout successful", order });
+  } catch (error) {
+    res.status(400).json({ error: error instanceof Error ? error.message : "Failed to checkout" });
+  }
+});
+
+app.get("/api/orders/:userId", async (req, res) => {
+  const { userId } = req.params;
+  const orders = await getOrdersByUserId(userId);
+  res.status(200).json({ orders, count: orders.length });
 });
 
 app.listen(PORT, () => {
