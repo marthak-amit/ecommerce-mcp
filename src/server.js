@@ -20,59 +20,73 @@ app.use((req, res, next) => {
 
 const transports = new Map();
 
-app.post("/mcp", async (req, res) => {
-  const sessionId = req.headers["mcp-session-id"];
+app.all("/mcp", async (req, res) => {
+  if (req.method === "POST") {
+    const sessionId = req.headers["mcp-session-id"];
 
-  try {
-    let transport;
+    try {
+      let transport;
 
-    if (sessionId && transports.has(sessionId)) {
-      transport = transports.get(sessionId);
-    } else if (!sessionId && isInitializeRequest(req.body)) {
-      transport = new StreamableHTTPServerTransport({
-        sessionIdGenerator: () => randomUUID(),
-        onsessioninitialized: (createdSessionId) => {
-          transports.set(createdSessionId, transport);
-        }
-      });
+      if (sessionId && transports.has(sessionId)) {
+        transport = transports.get(sessionId);
+      } else if (!sessionId && isInitializeRequest(req.body)) {
+        transport = new StreamableHTTPServerTransport({
+          sessionIdGenerator: () => randomUUID(),
+          onsessioninitialized: (createdSessionId) => {
+            transports.set(createdSessionId, transport);
+          }
+        });
 
-      transport.onclose = () => {
-        if (transport.sessionId) {
-          transports.delete(transport.sessionId);
-        }
-      };
+        transport.onclose = () => {
+          if (transport.sessionId) {
+            transports.delete(transport.sessionId);
+          }
+        };
 
-      const mcpServer = createMCPServer();
-      await mcpServer.connect(transport);
+        const mcpServer = createMCPServer();
+        await mcpServer.connect(transport);
+        await transport.handleRequest(req, res, req.body);
+        return;
+      } else if (sessionId && !transports.has(sessionId)) {
+        res.status(200).json({
+          name: "ecommerce-mcp",
+          status: "running",
+          timestamp: new Date().toISOString()
+        });
+        return;
+      } else {
+        res.status(200).json({
+          name: "ecommerce-mcp",
+          status: "running",
+          timestamp: new Date().toISOString()
+        });
+        return;
+      }
+
       await transport.handleRequest(req, res, req.body);
       return;
-    } else {
-      res.status(400).json({
-        jsonrpc: "2.0",
-        error: {
-          code: -32000,
-          message: "Bad Request: Missing valid MCP session"
-        },
-        id: null
-      });
+    } catch (error) {
+      console.error("Error handling /mcp request:", error);
+
+      if (!res.headersSent) {
+        res.status(500).json({
+          jsonrpc: "2.0",
+          error: {
+            code: -32603,
+            message: "Internal server error"
+          },
+          id: null
+        });
+      }
       return;
     }
-
-    await transport.handleRequest(req, res, req.body);
-  } catch (error) {
-    console.error("Error handling /mcp request:", error);
-
-    if (!res.headersSent) {
-      res.status(500).json({
-        jsonrpc: "2.0",
-        error: {
-          code: -32603,
-          message: "Internal server error"
-        },
-        id: null
-      });
-    }
   }
+
+  res.status(200).json({
+    name: "ecommerce-mcp",
+    status: "running",
+    timestamp: new Date().toISOString()
+  });
 });
 
 app.get("/.well-known/openai-domain-verification", (req, res) => {
