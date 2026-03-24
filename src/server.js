@@ -1,10 +1,14 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import path from "path";
 import { randomUUID } from "node:crypto";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import { createMCPServer } from "./mcpServer.js";
+import { searchProducts, getProductById } from "./services/productService.js";
+import { addToCart } from "./services/cartService.js";
+import { purchaseProduct } from "./services/orderService.js";
 
 dotenv.config();
 
@@ -101,6 +105,67 @@ app.get("/.well-known/openai-apps-challenge", (req, res) => {
   );
   res.status(200).type("text/plain");
   res.send(token);
+});
+
+app.get("/openapi.json", (req, res) => {
+  res.sendFile(path.join(process.cwd(), "openapi.json"));
+});
+
+app.post("/api/search-products", async (req, res) => {
+  try {
+    const { query } = req.body ?? {};
+
+    if (typeof query !== "string" || !query.trim()) {
+      res.status(400).json({ error: "query is required" });
+      return;
+    }
+
+    const products = await searchProducts(query);
+    res.status(200).json({ products, count: products.length });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to search products" });
+  }
+});
+
+app.get("/api/products/:productId", async (req, res) => {
+  try {
+    const productId = Number(req.params.productId);
+    if (!Number.isInteger(productId) || productId <= 0) {
+      res.status(400).json({ error: "productId must be a positive integer" });
+      return;
+    }
+
+    const product = await getProductById(productId);
+    if (!product) {
+      res.status(404).json({ error: "Product not found" });
+      return;
+    }
+
+    res.status(200).json(product);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to get product" });
+  }
+});
+
+app.post("/api/create-order", async (req, res) => {
+  try {
+    const { productId, quantity } = req.body ?? {};
+
+    if (!Number.isInteger(productId) || !Number.isInteger(quantity) || quantity <= 0) {
+      res.status(400).json({ error: "productId and quantity must be positive integers" });
+      return;
+    }
+
+    await addToCart(productId, quantity);
+    const order = await purchaseProduct("chatgpt-action-user");
+
+    res.status(200).json({
+      message: "Order confirmation",
+      order
+    });
+  } catch (error) {
+    res.status(400).json({ error: error instanceof Error ? error.message : "Failed to create order" });
+  }
 });
 
 app.listen(PORT, () => {
