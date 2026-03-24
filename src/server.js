@@ -80,6 +80,11 @@ app.get("/.well-known/openai-domain-verification", (req, res) => {
   res.send(process.env.OPENAI_DOMAIN_VERIFICATION_TOKEN);
 });
 
+app.get("/.well-known/openai-apps-challenge", (req, res) => {
+  res.status(200).type("text/plain");
+  res.send(process.env.OPENAI_APPS_CHALLENGE_TOKEN);
+});
+
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
