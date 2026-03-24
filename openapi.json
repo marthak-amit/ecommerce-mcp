@@ -3,7 +3,7 @@
   "info": {
     "title": "Ecommerce API",
     "version": "1.0.0",
-    "description": "API for searching products, viewing product details, and creating orders."
+    "description": "API for catalog browsing, search, cart operations, and order checkout."
   },
   "servers": [
     {
@@ -11,6 +11,17 @@
     }
   ],
   "paths": {
+    "/api/products": {
+      "get": {
+        "operationId": "listProducts",
+        "summary": "List all products",
+        "responses": {
+          "200": {
+            "description": "Product catalog"
+          }
+        }
+      }
+    },
     "/api/search-products": {
       "post": {
         "operationId": "searchProducts",
@@ -40,6 +51,41 @@
         }
       }
     },
+    "/api/filter-products": {
+      "post": {
+        "operationId": "filterProducts",
+        "summary": "Filter products by optional price, category, and rating",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "minPrice": {
+                    "type": "number"
+                  },
+                  "maxPrice": {
+                    "type": "number"
+                  },
+                  "category": {
+                    "type": "string"
+                  },
+                  "minRating": {
+                    "type": "number"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Filtered products"
+          }
+        }
+      }
+    },
     "/api/products/{productId}": {
       "get": {
         "operationId": "getProduct",
@@ -60,6 +106,61 @@
           },
           "404": {
             "description": "Product not found"
+          }
+        }
+      }
+    },
+    "/api/categories": {
+      "get": {
+        "operationId": "getCategories",
+        "summary": "Get product categories",
+        "responses": {
+          "200": {
+            "description": "Category list"
+          }
+        }
+      }
+    },
+    "/api/cart/add": {
+      "post": {
+        "operationId": "addToCart",
+        "summary": "Add product to cart",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "productId": {
+                    "type": "integer"
+                  },
+                  "quantity": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "productId",
+                  "quantity"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated cart"
+          }
+        }
+      }
+    },
+    "/api/cart": {
+      "get": {
+        "operationId": "viewCart",
+        "summary": "View cart totals and items",
+        "responses": {
+          "200": {
+            "description": "Current cart"
           }
         }
       }
@@ -93,6 +194,56 @@
         "responses": {
           "200": {
             "description": "Order confirmation"
+          }
+        }
+      }
+    },
+    "/api/checkout": {
+      "post": {
+        "operationId": "checkout",
+        "summary": "Checkout cart for a user",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "userId": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "userId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Checkout successful"
+          }
+        }
+      }
+    },
+    "/api/orders/{userId}": {
+      "get": {
+        "operationId": "getOrdersByUser",
+        "summary": "Get orders for a user",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Order history"
           }
         }
       }
